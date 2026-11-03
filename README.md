@@ -8,7 +8,7 @@ Google Workspace MX (`smtp.google.com`).
 
 ## Files
 
-- `.well-known/mta-sts.txt` — the policy. Currently `mode: testing`.
+- `.well-known/mta-sts.txt` — the policy. Currently `mode: enforce`, `max_age: 604800` (7 days).
 - `CNAME` — the Pages custom domain, `mta-sts.fogrugby.com`.
 - `.nojekyll` — required. Without it Jekyll skips dot-directories and
   `.well-known` returns 404.
