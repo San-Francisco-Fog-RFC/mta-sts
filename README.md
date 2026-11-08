@@ -26,3 +26,10 @@ Google Workspace MX (`smtp.google.com`).
 
 DNS: `mta-sts` is a CNAME to `san-francisco-fog-rfc.github.io`.
 No credentials are stored in this repo.
+
+## Dashboard status panel
+
+`status/dmarc.html` is embedded in the Fog DMARC dashboard (Looker Studio URL embed) at
+<https://mta-sts.fogrugby.com/status/dmarc.html>. Policy values are read live from
+public DNS on each load. To change the plan text (current step, next step, dates),
+edit `status/dmarc.json` only. Nothing here affects the MTA-STS policy file.

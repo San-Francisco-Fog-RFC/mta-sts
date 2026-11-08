@@ -1,0 +1,20 @@
+{
+  "updated": "2026-11-08",
+  "current_step": "Step 1: p=quarantine at 25%",
+  "current_since": "2026-11-03",
+  "next_step": "Step 2: p=quarantine at 100%",
+  "next_date": "On or after 17 Nov 2026",
+  "gate": "Pass rate stays at or above 98% and no real club service shows as Failing in the senders table below.",
+  "steps": [
+    { "id": "s0", "label": "Monitor", "policy": "p=none", "date": "4 Oct" },
+    { "id": "s1", "label": "Quarantine 25%", "policy": "p=quarantine; pct=25", "date": "3 Nov" },
+    { "id": "s2", "label": "Quarantine 100%", "policy": "p=quarantine", "date": "17 Nov+" },
+    { "id": "s3", "label": "Reject", "policy": "p=reject", "date": "8 Dec" },
+    { "id": "s4", "label": "Reject subdomains", "policy": "sp=reject", "date": "22 Dec" }
+  ],
+  "notes": [
+    "Passing = the message proved it came from fogrugby.com (an aligned SPF or DKIM pass).",
+    "'Failing (forwarding or mailing list)' rows are other people's systems re-sending our mail and can be ignored.",
+    "A security gateway such as Check Point Avanan failing on 1 or 2 messages is normal."
+  ]
+}

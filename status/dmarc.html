@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fogrugby.com email status</title>
+<!-- Embedded in the Fog DMARC dashboard (Looker Studio URL embed).
+     Live values come from public DNS (dns.google) and /.well-known/mta-sts.txt.
+     Plan text comes from status/dmarc.json: edit that file, not this one. -->
+<style>
+  :root { --navy:#00243C; --blue:#006EB6; --red:#C62828; --green:#2E7D32; --amber:#B26A00; --ink:#1d2730; --mute:#5b6773; --line:#d9dee3; --bg:#ffffff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 "Roboto", "Helvetica Neue", Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  .wrap { padding:14px 16px; }
+  h1 { font-size:16px; margin:0 0 2px; color:var(--navy); }
+  .sub { color:var(--mute); font-size:12px; margin:0 0 12px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .card { flex:1 1 150px; border:1px solid var(--line); padding:8px 10px; min-width:140px; }
+  .card .k { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); }
+  .card .v { font-size:15px; font-weight:600; margin-top:2px; word-break:break-word; }
+  .ok { color:var(--green); } .warn { color:var(--amber); } .bad { color:var(--red); }
+  .steps { display:flex; margin:4px 0 12px; }
+  .step { flex:1; padding:6px 6px 6px 8px; border-top:4px solid var(--line); font-size:12px; }
+  .step b { display:block; font-size:12px; }
+  .step span { color:var(--mute); }
+  .step.done { border-top-color:var(--blue); }
+  .step.now { border-top-color:var(--navy); background:#eef5fb; }
+  .next { border-left:4px solid var(--blue); padding:6px 10px; background:#f5f8fb; margin-bottom:10px; }
+  ul { margin:0; padding-left:18px; color:var(--mute); font-size:12px; }
+  code { font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>fogrugby.com email authentication (DMARC)</h1>
+  <p class="sub">Is mail claiming to be from fogrugby.com really from us? Policy values below are read live from public DNS each time this page loads. Report data on this dashboard loads daily at 9am PT.</p>
+
+  <div class="row">
+    <div class="card"><div class="k">DMARC policy (live)</div><div class="v" id="dmarc">Checking…</div></div>
+    <div class="card"><div class="k">SPF</div><div class="v" id="spf">Checking…</div></div>
+    <div class="card"><div class="k">MTA-STS</div><div class="v" id="mtasts">Checking…</div></div>
+    <div class="card"><div class="k">BIMI logo</div><div class="v" id="bimi">Checking…</div></div>
+  </div>
+
+  <div class="steps" id="steps"></div>
+
+  <div class="next" id="next">Loading plan…</div>
+  <ul id="notes"></ul>
+</div>
+<script>
+(function () {
+  function txt(name) {
+    return fetch("https://dns.google/resolve?type=TXT&name=" + encodeURIComponent(name))
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return (d.Answer || []).filter(function (a) { return a.type === 16; }).map(function (a) { return a.data.replace(/^"|"$/g, "").replace(/" "/g, ""); }); })
+      .catch(function () { return null; });
+  }
+  function tag(rec, key) { var m = rec.match(new RegExp("(?:^|;)\\s*" + key + "=([^;]+)", "i")); return m ? m[1].trim() : null; }
+  function set(id, text, cls) { var el = document.getElementById(id); el.textContent = text; el.className = "v " + (cls || ""); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  var liveStep = null;
+
+  var dmarcP = txt("_dmarc.fogrugby.com").then(function (a) {
+    if (a === null) return set("dmarc", "Couldn't check", "warn");
+    var rec = (a || []).filter(function (r) { return /^v=DMARC1/i.test(r); })[0];
+    if (!rec) return set("dmarc", "Missing", "bad");
+    var p = (tag(rec, "p") || "none").toLowerCase(), pct = tag(rec, "pct") || "100", sp = tag(rec, "sp");
+    var label = p === "none" ? "none (monitor only)" : p + (pct !== "100" ? " at " + pct + "%" : " at 100%") + (sp ? ", sp=" + sp : "");
+    set("dmarc", label, p === "none" ? "warn" : "ok");
+    if (p === "none") liveStep = "s0";
+    else if (p === "quarantine") liveStep = pct === "100" ? "s2" : "s1";
+    else if (p === "reject") liveStep = sp === "reject" ? "s4" : "s3";
+  });
+
+  txt("fogrugby.com").then(function (a) {
+    if (a === null) return set("spf", "Couldn't check", "warn");
+    var rec = (a || []).filter(function (r) { return /^v=spf1/i.test(r); })[0];
+    if (!rec) return set("spf", "Missing", "bad");
+    var all = (rec.match(/[~\-?+]all\b/) || ["?"])[0];
+    set("spf", all === "-all" ? "Strict (-all)" : all === "~all" ? "Soft fail (~all)" : all, all === "-all" ? "ok" : "warn");
+  });
+
+  fetch("/.well-known/mta-sts.txt", { cache: "no-store" }).then(function (r) { return r.text(); }).then(function (t) {
+    var mode = (t.match(/mode:\s*(\w+)/) || [])[1] || "unknown";
+    set("mtasts", mode === "enforce" ? "Enforce" : mode.charAt(0).toUpperCase() + mode.slice(1), mode === "enforce" ? "ok" : "warn");
+  }).catch(function () { set("mtasts", "Couldn't check", "warn"); });
+
+  txt("default._bimi.fogrugby.com").then(function (a) {
+    if (a === null) return set("bimi", "Couldn't check", "warn");
+    set("bimi", (a || []).some(function (r) { return /^v=BIMI1/i.test(r); }) ? "Published" : "Not yet", (a || []).length ? "ok" : "");
+  });
+
+  Promise.all([fetch("dmarc.json", { cache: "no-store" }).then(function (r) { return r.json(); }), dmarcP]).then(function (res) {
+    var s = res[0], order = s.steps.map(function (x) { return x.id; }), at = order.indexOf(liveStep);
+    document.getElementById("steps").innerHTML = s.steps.map(function (x, i) {
+      var cls = at < 0 ? "" : i < at ? "done" : i === at ? "now" : "";
+      return '<div class="step ' + cls + '"><b>' + esc(x.label) + '</b><span>' + esc(x.date) + '</span></div>';
+    }).join("");
+    document.getElementById("next").innerHTML = "<b>Next: " + esc(s.next_step) + "</b> &middot; " + esc(s.next_date) + "<br>Gate: " + esc(s.gate);
+    document.getElementById("notes").innerHTML = s.notes.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") +
+      "<li>Plan last updated " + esc(s.updated) + ".</li>";
+  }).catch(function () { document.getElementById("next").textContent = "Plan details unavailable."; });
+})();
+</script>
+</body>
+</html>
